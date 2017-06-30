@@ -1,9 +1,12 @@
 var express = require('express');
-var resumable = require('./resumable-node.js')('/tmp/resumable.js/');
+var path = require('path');
+tempFolder = path.join(__dirname, 'tmp');
+console.log('dir: ' + tempFolder)
+var resumable = require('./resumable-node.js')(tempFolder);
 var app = express();
 var multipart = require('connect-multiparty');
 var crypto = require('crypto');
-
+var fs = require('fs');
 // Host most stuff in the public folder
 app.use(express.static(__dirname + '/public'));
 
@@ -31,8 +34,15 @@ app.get('/fileid', function(req, res){
 // Handle uploads through Resumable.js
 app.post('/upload', function(req, res){
     resumable.post(req, function(status, filename, original_filename, identifier){
-        console.log('POST', status, original_filename, identifier);
-
+        if (status =='done') {
+          var writeStream = fs.createWriteStream(path.join(tempFolder,filename));
+          writeStream.on('finish', () => {
+            console.log("Ended");
+            resumable.clean(identifier);
+          });
+          resumable.write(identifier, writeStream);
+        }
+        console.log("SEND status:" + status);
         res.send(status);
     });
 });
